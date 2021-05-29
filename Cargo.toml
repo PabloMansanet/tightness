@@ -6,8 +6,6 @@ edition = "2018"
 license = "MIT"
 
 [dependencies]
-tightness-core = { version = "0.1.0", path = "tightness-core" }
-tightness-proc = { version = "0.1.0", path = "tightness-proc" }
+paste = "1.0.5"
+thiserror = "1.0"
 
-[workspace]
-members = ["tightness-core", "tightness-proc"]
