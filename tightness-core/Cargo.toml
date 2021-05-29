@@ -1,0 +1,8 @@
+[package]
+name = "tightness-core"
+version = "0.1.0"
+authors = ["PabloMansanet <pablomansanet@gmail.com>"]
+edition = "2018"
+license = "MIT"
+
+[dependencies]
