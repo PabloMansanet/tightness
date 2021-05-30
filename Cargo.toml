@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["PabloMansanet <pablomansanet@gmail.com>"]
 edition = "2018"
 license = "MIT"
+description = "Define types bound by arbitrary invariants and conditions"
+repository = "https://github.com/PabloMansanet/tightness"
+readme = "README.md"
 
 [features]
 unsafe_access = []
