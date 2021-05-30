@@ -1,4 +1,9 @@
-use std::{borrow::Borrow, fmt::Debug, marker::PhantomData, ops::{Deref, Index}};
+use std::{
+    borrow::Borrow,
+    fmt::Debug,
+    marker::PhantomData,
+    ops::{Deref, Index},
+};
 
 use thiserror::Error;
 
@@ -6,7 +11,7 @@ use thiserror::Error;
 #[error("Value supplied did not satisfy the type invariant")]
 /// The result of a failed invariant check on construction. Contains the value
 /// that failed to uphold the invariant.
-pub struct ConstructionError<T> (pub T);
+pub struct ConstructionError<T>(pub T);
 impl<T> Debug for ConstructionError<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ConstructionError").finish()
@@ -118,7 +123,11 @@ impl<T, B: Bound<Target = T>> Bounded<T, B> {
     /// letter.mutate_or(fallback, |l| *l = '5').unwrap_err();
     /// assert_eq!(*letter, 'b');
     /// ```
-    pub fn mutate_or(&mut self, default: Self, f: impl FnOnce(&mut T)) -> Result<(), MutationError<T>> {
+    pub fn mutate_or(
+        &mut self,
+        default: Self,
+        f: impl FnOnce(&mut T),
+    ) -> Result<(), MutationError<T>> {
         f(&mut self.0);
         if B::check(&self.0) {
             Ok(())
@@ -224,16 +233,12 @@ impl<T: PartialOrd, B: Bound<Target = T>> PartialOrd for Bounded<T, B> {
 }
 
 impl<T: Ord, B: Bound<Target = T>> Ord for Bounded<T, B> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.cmp(&other.0)
-    }
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering { self.0.cmp(&other.0) }
 }
 
 impl<T: Copy, B: Bound<Target = T>> Copy for Bounded<T, B> {}
 impl<T: core::hash::Hash, B: Bound<Target = T>> core::hash::Hash for Bounded<T, B> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state)
-    }
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) { self.0.hash(state) }
 }
 
 impl<T: Index<U>, U, B: Bound<Target = T>> Index<U> for Bounded<T, B> {

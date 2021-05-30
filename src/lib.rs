@@ -118,20 +118,22 @@ mod core;
 /// ```
 #[macro_export]
 macro_rules! bound {
-    ($visib:vis $name:ident: $type:ty where $check:expr) => { paste::paste! {
-        #[derive(Debug)]
-        $visib struct [<$name Bound>];
+    ($visib:vis $name:ident: $type:ty where $check:expr) => {
+        paste::paste! {
+            #[derive(Debug)]
+            $visib struct [<$name Bound>];
 
-        impl $crate::Bound for [<$name Bound>] {
-            type Target = $type;
-            fn check(target: &Self::Target) -> bool {
-                let check: fn(&Self::Target) -> bool = $check;
-                check(target)
+            impl $crate::Bound for [<$name Bound>] {
+                type Target = $type;
+                fn check(target: &Self::Target) -> bool {
+                    let check: fn(&Self::Target) -> bool = $check;
+                    check(target)
+                }
             }
-        }
 
-        $visib type $name = Bounded<$type, [<$name Bound>]>;
-    }}
+            $visib type $name = Bounded<$type, [<$name Bound>]>;
+        }
+    };
 }
 
 #[cfg(test)]
@@ -169,7 +171,10 @@ mod tests {
         let mut month = Month::new(7).unwrap();
         let impossible_mutation = |m: &mut usize| *m = *m + 13;
         assert!(matches!(month.try_mutate(impossible_mutation), Err(MutationError(None))));
-        assert!(matches!(month.mutate_or(month.clone(), impossible_mutation), Err(MutationError(None))));
+        assert!(matches!(
+            month.mutate_or(month.clone(), impossible_mutation),
+            Err(MutationError(None))
+        ));
         assert!(matches!(month.into_mutated(impossible_mutation), Err(MutationError(Some(20)))));
 
         let mut xor_pair = XorPair::new((true, false)).unwrap();
