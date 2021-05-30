@@ -9,7 +9,7 @@
 //! ```
 //!
 //! The [`bound`](bound) macro invocation above defines a `Username` type (actually,
-//! a type alias of [`Bounded<String, UsernameBound>`](Bounded) that is
+//! a type alias of [`Bounded<String, UsernameBound>`](Bounded)) that is
 //! a thin wrapper around String, with the added promise that it will
 //! always have less than eight characters.
 //!
