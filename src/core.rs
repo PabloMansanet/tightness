@@ -35,7 +35,7 @@ impl<T> Debug for MutationError<T> {
 pub struct BrokenInvariantError;
 
 /// Trait for an arbitrary condition that a bounded type must guarantee
-/// to upheld at all times.
+/// to uphold at all times.
 pub trait Bound {
     type Target;
     fn check(target: &Self::Target) -> bool;
