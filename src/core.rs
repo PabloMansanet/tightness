@@ -4,9 +4,7 @@ use thiserror::Error;
 
 #[derive(Error)]
 #[error("Value supplied did not satisfy the type invariant")]
-/// The result of a failed invariant check on construction.
-///
-/// In the cases where it's recoverable, this error contains the value
+/// The result of a failed invariant check on construction. Contains the value
 /// that failed to uphold the invariant.
 pub struct ConstructionError<T> (pub T);
 impl<T> Debug for ConstructionError<T> {
