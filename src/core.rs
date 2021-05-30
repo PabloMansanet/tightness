@@ -37,7 +37,9 @@ pub struct BrokenInvariantError;
 /// Trait for an arbitrary condition that a bounded type must guarantee
 /// to uphold at all times.
 pub trait Bound {
+    /// The type that the invariant is predicated on.
     type Target;
+    /// The condition that the target type must verify at all times.
     fn check(target: &Self::Target) -> bool;
 }
 
