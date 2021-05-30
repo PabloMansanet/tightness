@@ -19,7 +19,7 @@
 //! ```
 //! # use tightness::{bound, Bounded};
 //! # bound!(Username: String where |s| s.len() < 8);
-//! let username = Username::new("Admin".to_string()).unwrap();
+//! # let username = Username::new("Admin".to_string()).unwrap();
 //! assert!(username.chars().all(char::is_alphanumeric));
 //! let solid_credentials = format!("{}:{}", *username, "Password");
 //! ```
@@ -63,6 +63,11 @@
 //! function on construction and after every mutation. However, the function is known at compile
 //! time, so it's possible for the compiler to elide it in the trivial cases.
 //!
+//! Complex mutations consisting of multiple operations can be batched in a single closure, so that
+//! the invariant is enforced only once at the end. Be careful however: while the closure is
+//! executing, the value is considered to be mid-mutation and the invariant may not hold. Don't use
+//! the inner value to trigger any side effects that depend on it being correct.
+//!
 //! Enabling the feature flag `unsafe_access` expands [`Bounded`](Bounded) types with a set of
 //! methods that allow unsafe construction and mutation, requiring you to uphold the invariants
 //! manually. It also offers a `verify` method that allows you to check the invariants at any time.
@@ -70,16 +75,48 @@
 //! caution.
 //!
 //! # Without Macros
+//!
+//! The [`bound`](bound) macro simplifies defining bound types, but it's also possible to define
+//! them directly. The following is equivalent to `bound!(pub NonZero: usize where |u| u > 0)`;
+//!
+//! ```
+//! #[derive(Debug)]
+//! pub struct NonZeroBound;
+//!
+//! impl tightness::Bound for NonZeroBound {
+//!     type Target = usize;
+//!     fn check(target: &usize) -> bool { *target > 0 }
+//! }
+//!
+//! pub type NonZero = tightness::Bounded<usize, NonZeroBound>;
+//! ```
+//!
+//! The bound is associated to the type, and will then be called on construction and after mutation
+//! of any value of type `NonZero`.
+
 #![cfg_attr(not(feature = "unsafe_access"), forbid(unsafe_code))]
 pub use crate::core::*;
-
 mod core;
 
+/// Convenience macro that defines a bounded type, which is guaranteed to always uphold an
+/// invariant expressed as a boolean function.
+///
+/// # Examples
+/// ```
+/// use tightness::{bound, Bounded};
+///
+/// // Defines a public `Letter` type that wraps `char`, ensuring it's always alphabetic.
+/// bound!(pub Letter: char where |c| c.is_alphabetic());
+///
+/// // Defines a private `XorPair` type that wraps a pair of bools, so that they're never both true
+/// // or false.
+/// bound!(XorPair: (bool, bool) where |(a, b)| a ^ b);
+/// ```
 #[macro_export]
 macro_rules! bound {
-    ($name:ident: $type:ty where $check:expr) => { paste::paste! {
+    ($visib:vis $name:ident: $type:ty where $check:expr) => { paste::paste! {
         #[derive(Debug)]
-        pub struct [<$name Bound>];
+        $visib struct [<$name Bound>];
 
         impl $crate::Bound for [<$name Bound>] {
             type Target = $type;
@@ -89,7 +126,7 @@ macro_rules! bound {
             }
         }
 
-        pub type $name = Bounded<$type, [<$name Bound>]>;
+        $visib type $name = Bounded<$type, [<$name Bound>]>;
     }}
 }
 

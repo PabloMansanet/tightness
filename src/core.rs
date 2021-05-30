@@ -2,25 +2,67 @@ use std::{borrow::Borrow, convert::TryFrom, marker::PhantomData, ops::{Deref, In
 
 use thiserror::Error;
 
+/// `tightness` general error type. All possible errors result from a failed
+/// invariant check.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum Error {
+    /// Invariant was broken when constructing the bounded
+    /// type: the supplied value didn't satisfy the requirements.
     #[error("Invariant broken on construction")]
     ConstructionFailed,
+    /// Invariant was broken when attempting to mutate the bounded
+    /// type: the resulting value after mutation didn't satisfy
+    /// the requirements.
     #[error("Invariant broken on mutation")]
     MutationFailed,
+    #[cfg(feature = "unsafe_access")]
+    /// Invariant was broken at some unspecified point in the past,
+    /// as a result of incorrect use of the `unsafe` constructor
+    /// or mutators.
     #[error("Invariant broken at an unspecified point")]
     BrokenInvariant,
 }
 
+/// Trait for an arbitrary condition that a bounded type must guarantee
+/// to upheld at all times.
 pub trait Bound {
     type Target;
     fn check(target: &Self::Target) -> bool;
 }
 
+/// A bounded type, i.e. a thin wrapper around an inner type that guarantees a
+/// specific invariant is always held. Generic over an inner type `T` and a
+/// [`Bound`](Bound) that targets it.
+///
+/// Bounded types can be constructed directly or through the [`bound`](bound)
+/// macro:
+/// ```
+/// // Directly
+/// use tightness::{Bounded, Bound};
+///
+/// #[derive(Debug)]
+/// pub struct LetterBound;
+///
+/// impl tightness::Bound for LetterBound {
+///     type Target = char;
+///     fn check(target: &char) -> bool { target.is_alphabetic() }
+/// }
+///
+/// pub type Letter = tightness::Bounded<char, LetterBound>;
+///
+/// ```
+///
+/// ```
+/// // Via macro
+/// use tightness::{bound, Bounded};
+/// bound!(pub Letter: char where |l| l.is_alphabetic());
+/// ```
 #[derive(Debug)]
 pub struct Bounded<T, B: Bound<Target = T>>(T, PhantomData<B>);
 
 impl<T, B: Bound<Target = T>> Bounded<T, B> {
+    /// Fallible constructor. Will return `Error::ConstructionFailed` if the argument `t`
+    /// doesn't fulfill the conditions of the bound.
     pub fn new(t: T) -> Result<Self, Error> {
         if B::check(&t) {
             Ok(Self(t, Default::default()))
@@ -29,13 +71,13 @@ impl<T, B: Bound<Target = T>> Bounded<T, B> {
         }
     }
 
-    /// Preserves invariants after mutation. Panics if invariants are not upheld
+    /// Will panic if the conditions of the bound don't hold after mutation.
     pub fn mutate(&mut self, f: impl FnOnce(&mut T)) {
         f(&mut self.0);
         assert!(B::check(&self.0));
     }
 
-    /// If invariants aren't preserved after mutation, restores to a given value
+    /// If the conditions of the bond don't hold after mutation, will restore to a given value.
     pub fn mutate_or(&mut self, f: impl FnOnce(&mut T), default: Self) -> Result<(), Error> {
         f(&mut self.0);
         if B::check(&self.0) {
@@ -46,7 +88,7 @@ impl<T, B: Bound<Target = T>> Bounded<T, B> {
         }
     }
 
-    /// Inner value is dropped if mutation fails
+    /// The value is dropped if the conditions of the bond don't hold after mutation.
     pub fn into_mutated(mut self, f: impl FnOnce(&mut T)) -> Result<Self, Error> {
         f(&mut self.0);
         if B::check(&self.0) {
@@ -83,7 +125,7 @@ impl<T, B: Bound<Target = T>> Bounded<T, B> {
 
 impl<T: Clone, B: Bound<Target = T>> Bounded<T, B> {
     /// Preserves invariants after mutation, erroring out if the mutation broke
-    /// the invariants. Requires a copy to ensure the actual value is recoverable
+    /// the invariants. Requires a copy to ensure the actual value is recoverable.
     pub fn try_mutate(&mut self, f: impl FnOnce(&mut T)) -> Result<(), Error> {
         let mut duplicate = self.0.clone();
         f(&mut duplicate);
