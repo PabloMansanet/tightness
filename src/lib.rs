@@ -28,13 +28,13 @@
 //! ensure the invariants are *always* upheld:
 //!
 //! ```
-//! use tightness::{bound, Bounded, Error};
+//! use tightness::{self, bound, Bounded};
 //! bound!(Username: String where |s| s.len() < 8);
 //!
 //! // The only constructor is fallible, and the input value must satisfy
 //! // the bound conditions for it to succeed.
-//! assert_eq!(Username::new("Far_too_long".to_string()),
-//!    Err(Error::ConstructionFailed));
+//! assert!(matches!(Username::new("Far_too_long".to_string()),
+//!    Err(tightness::ConstructionError(_))));
 //! let mut username = Username::new("Short".to_string()).unwrap();
 //!
 //! // In-place mutation panics if the invariant is broken:
@@ -44,16 +44,19 @@
 //!
 //! // If the underlying type implements `clone`, you can try non-destructive,
 //! // fallible mutation at the cost of one copy:
-//! assert_eq!(username.try_mutate(|u| u.push_str("Far_too_long")), Err(Error::MutationFailed));
+//! assert!(matches!(username.try_mutate(|u| u.push_str("Far_too_long")),
+//!    Err(tightness::MutationError(None))));
 //! assert_eq!(*username, "SHORT");
 //!
 //! // You can also attempt mutation by providing a fallback value
 //! let fallback = username.clone();
-//! assert_eq!(username.mutate_or(|u| u.push_str("Far_too_long"), fallback), Err(Error::MutationFailed));
+//! assert!(matches!(username.mutate_or(fallback, |u| u.push_str("Far_too_long")),
+//!    Err(tightness::MutationError(None))));
 //! assert_eq!(*username, "SHORT");
 //!
-//! // Finally, you can just pass by value, and the data will be lost if mutation fails
-//! assert_eq!(username.into_mutated(|u| u.push_str("Far_too_long")), Err(Error::MutationFailed));
+//! // Finally, you can just pass by value, and the inner will be recoverable if mutation fails
+//! assert!(matches!(username.into_mutated(|u| u.push_str("Far_too_long")),
+//!     Err(tightness::MutationError(Some(_)))));
 //! ```
 //!
 //! # Performance
@@ -164,12 +167,12 @@ mod tests {
     fn fallible_mutations_fail_on_invalid_final_values() {
         let mut month = Month::new(7).unwrap();
         let impossible_mutation = |m: &mut usize| *m = *m + 13;
-        assert!(matches!(month.try_mutate(impossible_mutation), Err(Error::MutationFailed)));
-        assert!(matches!(month.mutate_or(impossible_mutation, month.clone()), Err(Error::MutationFailed)));
-        assert!(matches!(month.into_mutated(impossible_mutation), Err(Error::MutationFailed)));
+        assert!(matches!(month.try_mutate(impossible_mutation), Err(MutationError(None))));
+        assert!(matches!(month.mutate_or(month.clone(), impossible_mutation), Err(MutationError(None))));
+        assert!(matches!(month.into_mutated(impossible_mutation), Err(MutationError(Some(20)))));
 
         let mut xor_pair = XorPair::new((true, false)).unwrap();
-        assert!(matches!(xor_pair.try_mutate(|(a, b)| *a = *b), Err(Error::MutationFailed)));
+        assert!(matches!(xor_pair.try_mutate(|(a, b)| *a = *b), Err(MutationError(None))));
     }
 
     #[test]
@@ -177,7 +180,7 @@ mod tests {
         let mut month = Month::new(7).unwrap();
         month.try_mutate(|m| *m += 1).unwrap();
         assert_eq!(*month, 8);
-        month.mutate_or(|m| *m += 1, month.clone()).unwrap();
+        month.mutate_or(month.clone(), |m| *m += 1).unwrap();
         assert_eq!(*month, 9);
         let month = month.into_mutated(|m| *m += 1).unwrap();
         assert_eq!(*month, 10);

@@ -1,27 +1,40 @@
-use std::{borrow::Borrow, marker::PhantomData, ops::{Deref, Index}};
+use std::{borrow::Borrow, fmt::Debug, marker::PhantomData, ops::{Deref, Index}};
 
 use thiserror::Error;
 
-/// `tightness` general error type. All possible errors result from a failed
-/// invariant check.
-#[derive(Debug, Error, PartialEq, Eq)]
-pub enum Error {
-    /// Invariant was broken when constructing the bounded
-    /// type: the supplied value didn't satisfy the requirements.
-    #[error("Invariant broken on construction")]
-    ConstructionFailed,
-    /// Invariant was broken when attempting to mutate the bounded
-    /// type: the resulting value after mutation didn't satisfy
-    /// the requirements.
-    #[error("Invariant broken on mutation")]
-    MutationFailed,
-    #[cfg(feature = "unsafe_access")]
-    /// Invariant was broken at some unspecified point in the past,
-    /// as a result of incorrect use of the `unsafe` constructor
-    /// or mutators.
-    #[error("Invariant broken at an unspecified point")]
-    BrokenInvariant,
+#[derive(Error)]
+#[error("Value supplied did not satisfy the type invariant")]
+/// The result of a failed invariant check on construction.
+///
+/// In the cases where it's recoverable, this error contains the value
+/// that failed to uphold the invariant.
+pub struct ConstructionError<T> (pub T);
+impl<T> Debug for ConstructionError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ConstructionError").finish()
+    }
 }
+
+/// The result of a failed invariant check at the end of mutation.
+///
+/// In the cases where it's recoverable, this error contains the value
+/// that failed to uphold the invariant.
+#[derive(Error)]
+#[error("Value did not satisfy the type invariant after mutation")]
+pub struct MutationError<T>(pub Option<T>);
+impl<T> Debug for MutationError<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("MutationError")
+    }
+}
+
+/// The result of a broken invariant at some unspecified point in the
+/// past. This can only happen as a consequence of incorrect usage of
+/// `unsafe` accessors enabled with the `unsafe_access` flag
+#[cfg(feature = "unsafe_access")]
+#[derive(Error, Debug)]
+#[error("Invariant was broken at some point in the past")]
+pub struct BrokenInvariantError;
 
 /// Trait for an arbitrary condition that a bounded type must guarantee
 /// to upheld at all times.
@@ -37,7 +50,7 @@ pub trait Bound {
 /// Bounded types can be constructed directly or through the [`bound`](bound)
 /// macro:
 /// ```
-/// // Directly
+/// // Defined directly
 /// use tightness::{Bounded, Bound};
 ///
 /// #[derive(Debug)]
@@ -53,7 +66,7 @@ pub trait Bound {
 /// ```
 ///
 /// ```
-/// // Via macro
+/// // Defined via macro
 /// use tightness::{bound, Bounded};
 /// bound!(pub Letter: char where |l| l.is_alphabetic());
 /// ```
@@ -61,47 +74,74 @@ pub trait Bound {
 pub struct Bounded<T, B: Bound<Target = T>>(T, PhantomData<B>);
 
 impl<T, B: Bound<Target = T>> Bounded<T, B> {
-    /// Fallible constructor. Will return `Error::ConstructionFailed` if the argument `t`
+    /// Fallible constructor. Will return an error if the argument `t`
     /// doesn't fulfill the conditions of the bound.
-    pub fn new(t: T) -> Result<Self, Error> {
+    ///
+    /// ```
+    /// # use tightness::{bound, Bounded};
+    /// bound!(Letter: char where |c| c.is_alphabetic());
+    /// assert!(Letter::new('5').is_err());
+    /// assert!(Letter::new('a').is_ok());
+    /// ```
+    pub fn new(t: T) -> Result<Self, ConstructionError<T>> {
         if B::check(&t) {
             Ok(Self(t, Default::default()))
         } else {
-            Err(Error::ConstructionFailed)
+            Err(ConstructionError(t))
         }
     }
 
     /// Will panic if the conditions of the bound don't hold after mutation.
+    ///
+    /// ```should_panic
+    /// # use tightness::{bound, Bounded};
+    /// bound!(Letter: char where |c| c.is_alphabetic());
+    /// let mut letter = Letter::new('a').unwrap();
+    /// letter.mutate(|l| *l = 'b');
+    ///
+    /// // Panics:
+    /// letter.mutate(|l| *l = '5');
+    /// ```
     pub fn mutate(&mut self, f: impl FnOnce(&mut T)) {
         f(&mut self.0);
         assert!(B::check(&self.0));
     }
 
     /// If the conditions of the bond don't hold after mutation, will restore to a given value.
-    pub fn mutate_or(&mut self, f: impl FnOnce(&mut T), default: Self) -> Result<(), Error> {
+    ///
+    /// ```
+    /// # use tightness::{bound, Bounded};
+    /// bound!(Letter: char where |c| c.is_alphabetic());
+    /// let mut letter = Letter::new('a').unwrap();
+    /// let mut fallback = Letter::new('b').unwrap();
+    ///
+    /// letter.mutate_or(fallback, |l| *l = '5').unwrap_err();
+    /// assert_eq!(*letter, 'b');
+    /// ```
+    pub fn mutate_or(&mut self, default: Self, f: impl FnOnce(&mut T)) -> Result<(), MutationError<T>> {
         f(&mut self.0);
         if B::check(&self.0) {
             Ok(())
         } else {
             *self = default;
-            Err(Error::MutationFailed)
+            Err(MutationError(None))
         }
     }
 
     /// The value is dropped if the conditions of the bond don't hold after mutation.
-    pub fn into_mutated(mut self, f: impl FnOnce(&mut T)) -> Result<Self, Error> {
+    pub fn into_mutated(mut self, f: impl FnOnce(&mut T)) -> Result<Self, MutationError<T>> {
         f(&mut self.0);
         if B::check(&self.0) {
             Ok(self)
         } else {
-            Err(Error::MutationFailed)
+            Err(MutationError(Some(self.0)))
         }
     }
 
-    /// Accesses the inner value through an immutable reference
+    /// Access the inner value through an immutable reference.
     pub fn get(&self) -> &T { &self.0 }
 
-    /// Retrieve the inner, unprotected value
+    /// Retrieve the inner, unprotected value.
     pub fn into_inner(self) -> T { self.0 }
 
     /// Invariant must be upheld manually!
@@ -118,13 +158,13 @@ impl<T, B: Bound<Target = T>> Bounded<T, B> {
     pub unsafe fn get_mut(&mut self) -> &mut T { &mut self.0 }
 
     /// Verifies invariants. This is guaranteed to succeed unless you've used
-    /// one of the `unsafe` methods that require variants to be manually upheld
+    /// one of the `unsafe` methods that require variants to be manually upheld.
     #[cfg(feature = "unsafe_access")]
-    pub fn verify(&self) -> Result<(), Error> {
+    pub fn verify(&self) -> Result<(), BrokenInvariantError> {
         if B::check(&self.0) {
             Ok(())
         } else {
-            Err(Error::BrokenInvariant)
+            Err(BrokenInvariantError)
         }
     }
 }
@@ -132,14 +172,14 @@ impl<T, B: Bound<Target = T>> Bounded<T, B> {
 impl<T: Clone, B: Bound<Target = T>> Bounded<T, B> {
     /// Preserves invariants after mutation, erroring out if the mutation broke
     /// the invariants. Requires a copy to ensure the actual value is recoverable.
-    pub fn try_mutate(&mut self, f: impl FnOnce(&mut T)) -> Result<(), Error> {
+    pub fn try_mutate(&mut self, f: impl FnOnce(&mut T)) -> Result<(), MutationError<T>> {
         let mut duplicate = self.0.clone();
         f(&mut duplicate);
         if B::check(&duplicate) {
             self.0 = duplicate;
             Ok(())
         } else {
-            Err(Error::MutationFailed)
+            Err(MutationError(None))
         }
     }
 }
@@ -219,13 +259,6 @@ mod tests {
     #[test]
     #[should_panic]
     fn mutating_with_failing_bounds_panics() {
-        let mut bounded = Bounded::<i32, IsPositive>::new(5i32).unwrap();
-        bounded.mutate(|i| *i = -5);
-    }
-
-    #[test]
-    #[should_panic]
-    fn expressive_mutating_with_failing_bounds_panics() {
         let mut bounded = Bounded::<i32, IsPositive>::new(5i32).unwrap();
         bounded.mutate(|i| *i = -5);
     }
