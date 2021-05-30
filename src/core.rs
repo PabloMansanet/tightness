@@ -78,10 +78,10 @@ impl<T, B: Bound<Target = T>> Bounded<T, B> {
     /// doesn't fulfill the conditions of the bound.
     ///
     /// ```
-    /// # use tightness::{bound, Bounded};
+    /// # use tightness::{bound, Bounded, ConstructionError};
     /// bound!(Letter: char where |c| c.is_alphabetic());
-    /// assert!(Letter::new('5').is_err());
     /// assert!(Letter::new('a').is_ok());
+    /// assert!(matches!(Letter::new('5'), Err(ConstructionError('5'))));
     /// ```
     pub fn new(t: T) -> Result<Self, ConstructionError<T>> {
         if B::check(&t) {
@@ -107,7 +107,7 @@ impl<T, B: Bound<Target = T>> Bounded<T, B> {
         assert!(B::check(&self.0));
     }
 
-    /// If the conditions of the bond don't hold after mutation, will restore to a given value.
+    /// If the conditions of the bound don't hold after mutation, will restore to a given value.
     ///
     /// ```
     /// # use tightness::{bound, Bounded};
@@ -128,7 +128,17 @@ impl<T, B: Bound<Target = T>> Bounded<T, B> {
         }
     }
 
-    /// The value is dropped if the conditions of the bond don't hold after mutation.
+    /// The value is dropped if the conditions of the bound don't hold after mutation.
+    /// ```
+    /// # use tightness::{bound, Bounded, MutationError};
+    /// bound!(Letter: char where |c| c.is_alphabetic());
+    /// let mut letter = Letter::new('a').unwrap();
+    ///
+    /// let letter = letter.into_mutated(|l| *l = 'b').unwrap();
+    /// let result = letter.into_mutated(|l| *l = '5');
+    ///
+    /// assert!(matches!(result, Err(MutationError(Some('5')))));
+    /// ```
     pub fn into_mutated(mut self, f: impl FnOnce(&mut T)) -> Result<Self, MutationError<T>> {
         f(&mut self.0);
         if B::check(&self.0) {
