@@ -1,15 +1,80 @@
+//! This crate provides a way to define type wrappers that behave
+//! as close as possible to the underlying type, but guarantee to
+//! uphold arbitrary invariants at all times.
+//!
+//! # Example
+//! ```
+//! use tightness::{bound, Bounded};
+//! bound!(Username: String where |s| s.len() < 8);
+//! ```
+//!
+//! The [`bound`](bound) macro invocation above defines a `Username` type (actually,
+//! a type alias of [`Bounded<String, UsernameBound>`](Bounded) that is
+//! a thin wrapper around String, with the added promise that it will
+//! always have less than eight characters.
+//!
+//! Immutable access behaves as close as possible to the underlying type,
+//! with all traits you'd expect from a newtype wrapper already implemented:
+//!
+//! ```
+//! # use tightness::{bound, Bounded};
+//! # bound!(Username: String where |s| s.len() < 8);
+//! let username = Username::new("Admin".to_string()).unwrap();
+//! assert!(username.chars().all(char::is_alphanumeric));
+//! let solid_credentials = format!("{}:{}", *username, "Password");
+//! ```
+//!
+//! However, construction and mutable access must be done through a fixed set of forms that
+//! ensure the invariants are *always* upheld:
+//!
+//! ```
+//! use tightness::{bound, Bounded, Error};
+//! bound!(Username: String where |s| s.len() < 8);
+//!
+//! // The only constructor is fallible, and the input value must satisfy
+//! // the bound conditions for it to succeed.
+//! assert_eq!(Username::new("Far_too_long".to_string()),
+//!    Err(Error::ConstructionFailed));
+//! let mut username = Username::new("Short".to_string()).unwrap();
+//!
+//! // In-place mutation panics if the invariant is broken:
+//! // Would panic: `username.mutate(|u| u.push_str("Far_too_long"))`
+//! username.mutate(|u| *u = u.to_uppercase());
+//! assert_eq!(*username, "SHORT");
+//!
+//! // If the underlying type implements `clone`, you can try non-destructive,
+//! // fallible mutation at the cost of one copy:
+//! assert_eq!(username.try_mutate(|u| u.push_str("Far_too_long")), Err(Error::MutationFailed));
+//! assert_eq!(*username, "SHORT");
+//!
+//! // You can also attempt mutation by providing a fallback value
+//! let fallback = username.clone();
+//! assert_eq!(username.mutate_or(|u| u.push_str("Far_too_long"), fallback), Err(Error::MutationFailed));
+//! assert_eq!(*username, "SHORT");
+//!
+//! // Finally, you can just pass by value, and the data will be lost if mutation fails
+//! assert_eq!(username.into_mutated(|u| u.push_str("Far_too_long")), Err(Error::MutationFailed));
+//! ```
+//!
+//! # Performance
+//!
+//! Since invariants are arbitrarily complex, it's not possible to guarantee they're evaluated at
+//! compile time. Using a [`Bounded`](Bounded) type incurs the cost of invoking the invariant
+//! function on construction and after every mutation. However, the function is known at compile
+//! time, so it's possible for the compiler to elide it in the trivial cases.
+//!
+//! Enabling the feature flag `unsafe_access` expands [`Bounded`](Bounded) types with a set of
+//! methods that allow unsafe construction and mutation, requiring you to uphold the invariants
+//! manually. It also offers a `verify` method that allows you to check the invariants at any time.
+//! This can help in the cases where maximum performance is needed, but it must be used with
+//! caution.
+//!
+//! # Without Macros
 #![cfg_attr(not(feature = "unsafe_access"), forbid(unsafe_code))]
 pub use crate::core::*;
 
 mod core;
 
-/// Defines a type wrapper that promises to enforce a given
-/// invariant at all times.
-///
-/// # Examples
-/// ```
-/// bound!(Username: String where |u| u.len() < 8);
-/// ```
 #[macro_export]
 macro_rules! bound {
     ($name:ident: $type:ty where $check:expr) => { paste::paste! {

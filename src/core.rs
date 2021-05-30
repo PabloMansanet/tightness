@@ -2,7 +2,7 @@ use std::{borrow::Borrow, convert::TryFrom, marker::PhantomData, ops::{Deref, In
 
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum Error {
     #[error("Invariant broken on construction")]
     ConstructionFailed,
