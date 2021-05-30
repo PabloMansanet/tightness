@@ -101,6 +101,9 @@
 pub use crate::core::*;
 mod core;
 
+#[doc(hidden)]
+pub use paste::paste;
+
 /// Convenience macro that defines a bounded type, which is guaranteed to always uphold an
 /// invariant expressed as a boolean function. The resulting type is an alias of [`Bounded<BaseType,
 /// TypeNameBound>`](Bounded).
@@ -119,7 +122,7 @@ mod core;
 #[macro_export]
 macro_rules! bound {
     ($visib:vis $name:ident: $type:ty where $check:expr) => {
-        paste::paste! {
+        $crate::paste! {
             #[derive(Debug)]
             $visib struct [<$name Bound>];
 
@@ -131,7 +134,7 @@ macro_rules! bound {
                 }
             }
 
-            $visib type $name = Bounded<$type, [<$name Bound>]>;
+            $visib type $name = $crate::Bounded<$type, [<$name Bound>]>;
         }
     };
 }
