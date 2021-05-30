@@ -98,6 +98,12 @@ impl<T, B: Bound<Target = T>> Bounded<T, B> {
         }
     }
 
+    /// Accesses the inner value through an immutable reference
+    pub fn get(&self) -> &T { &self.0 }
+
+    /// Retrieve the inner, unprotected value
+    pub fn into_inner(self) -> T { self.0 }
+
     /// Invariant must be upheld manually!
     #[cfg(feature = "unsafe_access")]
     pub unsafe fn new_unchecked(t: T) -> Self { Self(t, Default::default()) }
