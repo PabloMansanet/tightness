@@ -102,7 +102,8 @@ pub use crate::core::*;
 mod core;
 
 /// Convenience macro that defines a bounded type, which is guaranteed to always uphold an
-/// invariant expressed as a boolean function.
+/// invariant expressed as a boolean function. The resulting type is an alias of [`Bounded<BaseType,
+/// TypeNameBound>`](Bounded).
 ///
 /// # Examples
 /// ```
