@@ -16,7 +16,7 @@ by checking the conditions on construction and after every mutation.
 Immutably, bounded types get out of the way and act as close as possible to the
 underlying type, implementing all traits that a typical `Newtype` wrapper would.
 
-Check out the [documentation](./) for more details!
+Check out the [documentation](https://docs.rs/tightness/0.1.0/tightness/) for more details!
 
 # Caveat Emptor
 
