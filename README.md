@@ -10,9 +10,8 @@ bound!(Username: String where |s| s.len() < 8);
 ```
 
 The above defines three types (`Letter`, `XorPair` and `Username`) that are
-guaranteed to always fulfill the given conditions. This is enforced at runtime,
-by checking the conditions after construction and once after mutation, which
-must be done through a set of fixed forms.
+guaranteed to always fulfill the given conditions. This is enforced
+by checking the conditions after construction and once after mutation.
 
 Immutably, bounded types get out of the way and act as close as possible to the
 underlying type, implementing all traits that a typical `Newtype` wrapper would.
