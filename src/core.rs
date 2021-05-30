@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, marker::PhantomData, ops::{Deref, Index}};
+use std::{borrow::Borrow, convert::TryFrom, marker::PhantomData, ops::{Deref, Index, RangeBounds}};
 
 use thiserror::Error;
 
@@ -57,17 +57,21 @@ impl<T, B: Bound<Target = T>> Bounded<T, B> {
     }
 
     /// Invariant must be upheld manually!
+    #[cfg(feature = "unsafe_access")]
     pub unsafe fn new_unchecked(t: T) -> Self { Self(t, Default::default()) }
 
     /// Invariant must be upheld manually!
+    #[cfg(feature = "unsafe_access")]
     pub unsafe fn mutate_unchecked(&mut self, f: impl FnOnce(&mut T)) { f(&mut self.0) }
 
     /// Gives mutable access to the internals without upholding invariants.
     /// They must continue to be upheld manually while the reference lives!
+    #[cfg(feature = "unsafe_access")]
     pub unsafe fn get_mut(&mut self) -> &mut T { &mut self.0 }
 
     /// Verifies invariants. This is guaranteed to succeed unless you've used
     /// one of the `unsafe` methods that require variants to be manually upheld
+    #[cfg(feature = "unsafe_access")]
     pub fn verify(&self) -> Result<(), Error> {
         if B::check(&self.0) {
             Ok(())
@@ -127,12 +131,18 @@ impl<T: Ord, B: Bound<Target = T>> Ord for Bounded<T, B> {
     }
 }
 
+impl<T: Copy, B: Bound<Target = T>> Copy for Bounded<T, B> {}
+impl<T: core::hash::Hash, B: Bound<Target = T>> core::hash::Hash for Bounded<T, B> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state)
+    }
+}
+
 impl<T: Index<U>, U, B: Bound<Target = T>> Index<U> for Bounded<T, B> {
     type Output = T::Output;
 
     fn index(&self, index: U) -> &Self::Output { self.0.index(index) }
 }
-
 
 #[cfg(test)]
 mod tests {

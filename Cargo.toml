@@ -5,6 +5,9 @@ authors = ["PabloMansanet <pablomansanet@gmail.com>"]
 edition = "2018"
 license = "MIT"
 
+[features]
+unsafe_access = []
+
 [dependencies]
 paste = "1.0.5"
 thiserror = "1.0"

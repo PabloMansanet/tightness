@@ -1,12 +1,18 @@
-#[forbid(unsafe_code)]
-pub use paste::paste;
+#![cfg_attr(not(feature = "unsafe_access"), forbid(unsafe_code))]
 pub use crate::core::*;
 
 mod core;
 
+/// Defines a type wrapper that promises to enforce a given
+/// invariant at all times.
+///
+/// # Examples
+/// ```
+/// bound!(Username: String where |u| u.len() < 8);
+/// ```
 #[macro_export]
 macro_rules! bound {
-    ($name:ident: $type:ty where $check:expr) => { $crate::paste! {
+    ($name:ident: $type:ty where $check:expr) => { paste::paste! {
         #[derive(Debug)]
         pub struct [<$name Bound>];
 
