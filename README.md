@@ -18,6 +18,9 @@ underlying type, implementing all traits that a typical `Newtype` wrapper would.
 
 Check out the [documentation](https://docs.rs/tightness/0.1.0/tightness/) for more details!
 
+Credit to Orson Peters (`orlp` in the Rust Discord) for the idea for the `Bound`
+trait, which was the seed from which this crate grew.
+
 # Caveat Emptor
 
 This crate offers a one-size-fits-all solution. This means it's probably a
