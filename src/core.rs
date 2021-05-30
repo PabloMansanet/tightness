@@ -180,8 +180,8 @@ impl<T, B: Bound<Target = T>> Bounded<T, B> {
 }
 
 impl<T: Clone, B: Bound<Target = T>> Bounded<T, B> {
-    /// Preserves invariants after mutation, erroring out if the mutation broke
-    /// the invariants. Requires a copy to ensure the actual value is recoverable.
+    /// Preserves invariants after mutation, erroring out if the attempt to mutate was
+    /// invalid. Requires a copy to ensure the value is recoverable.
     pub fn try_mutate(&mut self, f: impl FnOnce(&mut T)) -> Result<(), MutationError<T>> {
         let mut duplicate = self.0.clone();
         f(&mut duplicate);
