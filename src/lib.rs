@@ -1,6 +1,16 @@
+compile_error!(" This feature branch is **UNSOUND**. It's just a testing ground \
+ for aggressive optimization using `unreachable_unchecked` to \
+ assume invariants. Without a way to restrict the invariant \
+ functions to be pure, the invariants may be arbitrarily broken. \
+ \
+ There might be ways to do this safely in the future, but hinge on \
+ a way of requiring the bound function to be pure.");
+
+//!
 //! This crate provides a way to define type wrappers that behave
 //! as close as possible to the underlying type, but guarantee to
 //! uphold arbitrary invariants at all times.
+//!
 //!
 //! # Example
 //! ```

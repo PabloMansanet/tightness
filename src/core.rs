@@ -285,7 +285,7 @@ impl<T, B: Bound<Target = T>> Bounded<T, B> {
     /// * `new_unchecked`
     /// * `mutate_unchecked`
     ///
-    /// They are all `unsafe` and gated behind the `unsafe_access` flags, so it is correct
+    /// They are all `unsafe` and gated behind the `unsafe_access` feature flag, so it is correct
     /// to always assume the invariants hold.
     #[inline(always)]
     fn assume_invariant(&self) {
