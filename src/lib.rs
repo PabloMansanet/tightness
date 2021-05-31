@@ -97,7 +97,6 @@
 //! The bound is associated to the type, and will then be called on construction and after mutation
 //! of any value of type `NonZero`.
 
-#![cfg_attr(not(feature = "unsafe_access"), forbid(unsafe_code))]
 pub use crate::core::*;
 mod core;
 
